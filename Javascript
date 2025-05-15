@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STEM Puzzle Adventure</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: #0a192f;
+            color: #ccd6f6;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        #game-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #112240;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        #room-display {
+            background-color: #0a192f;
+            border: 2px solid #64ffda;
+            border-radius: 8px;
+            padding: 15px;
+            min-height: 200px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #room-image {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            width: 150px;
+            opacity: 0.7;
+            transition: all 0.5s ease;
+        }
+        
+        #text-output, #explanation-output {
+            min-height: 150px;
+            white-space: pre-wrap;
+        }
+        
+        #explanation-output {
+            color: #64ffda;
+            margin-top: 10px;
+        }
+        
+        #status-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+            background-color: #0a192f;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .status-item {
+            background-color: #112240;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        
+        #input-area {
+            margin-top: 20px;
+        }
+        
+        input, button {
+            background-color: #233554;
+            color: #ccd6f6;
+            border: 1px solid #64ffda;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        
+        button {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        
+        button:hover {
+            background-color: #64ffda;
+            color: #0a192f;
+        }
+        
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .option-btn {
+            text-align: left;
+            padding: 10px;
+            transition: all 0.2s ease;
+        }
+        
+        .option-btn:hover {
+            background-color: #1e4b7b;
+        }
+        
+        h1, h2 {
+            color: #64ffda;
+        }
+        
+        #welcome-screen {
+            text-align: center;
+            padding: 30px;
+        }
+        
+        #start-btn {
+            padding: 12px 24px;
+            font-size: 18px;
+            margin-top: 20px;
+            background-color: #64ffda;
+            color: #0a192f;
+            border: none;
+        }
+        
+        #start-btn:hover {
+            background-color: #52d1b2;
+        }
+        
+        @media (max-width: 600px) {
+            #room-image {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="welcome-screen">
+            <h1>STEM Puzzle Adventure</h1>
+            <h2>The Lost Scientist</h2>
+            <p>You are a young scientist trapped in a mysterious research facility. To escape, you must solve STEM puzzles in each room.</p>
+            <button id="start-btn">Begin Adventure</button>
+        </div>
+        
+        <div id="game-screen" style="display: none;">
+            <div id="room-display">
+                <img id="room-image" src="" alt="Room image">
+                <div id="text-output"></div>
+                <div id="explanation-output"></div>
+            </div>
+            
+            <div id="status-panel">
+                <div class="status-item">
+                    <strong>Player:</strong> <span id="player-name">Unknown</span>
+                </div>
+                <div class="status-item">
+                    <strong>Score:</strong> <span id="score">0</span>
+                </div>
+                <div class="status-item">
+                    <strong>Room:</strong> <span id="current-room">Entrance</span>
+                </div>
+                <div class="status-item">
+                    <strong>Puzzles Solved:</strong> <span id="puzzles-solved">0</span>
+                </div>
+            </div>
+            
+            <div id="input-area">
+                <div id="options-container" class="options-container"></div>
+                <input type="text" id="text-input" placeholder="Type your answer..." style="display: none;">
+                <button id="submit-btn" style="display: none;">Submit</button>
+                <button id="next-btn" style="display: none;">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let currentPuzzle = null;
+        
+        // DOM elements
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const textOutput = document.getElementById('text-output');
+        const explanationOutput = document.getElementById('explanation-output');
+        const playerNameEl = document.getElementById('player-name');
+        const scoreEl = document.getElementById('score');
+        const currentRoomEl = document.getElementById('current-room');
+        const puzzlesSolvedEl = document.getElementById('puzzles-solved');
+        const roomImage = document.getElementById('room-image');
+        const textInput = document.getElementById('text-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const optionsContainer = document.getElementById('options-container');
+        const startBtn = document.getElementById('start-btn');
+
+        // Room images
+        const roomImages = {
+            entrance: "https://via.placeholder.com/150/0a192f/64ffda?text=Entrance",
+            "math lab": "https://via.placeholder.com/150/0a192f/64ffda?text=Math+Lab",
+            "chemistry lab": "https://via.placeholder.com/150/0a192f/64ffda?text=Chemistry+Lab",
+            "physics lab": "https://via.placeholder.com/150/0a192f/64ffda?text=Physics+Lab",
+            "biology lab": "https://via.placeholder.com/150/0a192f/64ffda?text=Biology+Lab",
+            "control room": "https://via.placeholder.com/150/0a192f/64ffda?text=Control+Room"
+        };
+
+        // API calls
+        async function apiCall(endpoint, data = {}) {
+            try {
+                const response = await fetch(http://localhost:5000/api/${endpoint}, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                return { error: "Connection failed. Make sure the backend is running." };
+            }
+        }
+
+        // Typewriter effect
+        async function typewriter(element, text, speed = 30) {
+            element.innerHTML = '';
+            for (let i = 0; i < text.length; i++) {
+                element.innerHTML += text[i];
+                await new Promise(resolve => setTimeout(resolve, speed));
+            }
+        }
+
+        // Display messages with typewriter effect
+        async function displayMessages(messages, targetElement = textOutput) {
+            for (const message of messages) {
+                await typewriter(targetElement, message + '\n');
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        // Update game status display
+        function updateStatus(status) {
+            playerNameEl.textContent = status.player_name;
+            scoreEl.textContent = status.score;
+            currentRoomEl.textContent = status.current_room;
+            puzzlesSolvedEl.textContent = status.completed_puzzles;
+            
+            // Update room image
+            if (roomImages[status.current_room.toLowerCase()]) {
+                roomImage.src = roomImages[status.current_room.toLowerCase()];
+                roomImage.style.opacity = '0.7';
+            }
+        }
+
+        // Start a new puzzle
+        async function startPuzzle(puzzleType) {
+            const response = await apiCall('puzzle/start', { type: puzzleType });
+            if (response.error) {
+                await displayMessages([response.error]);
+                return;
+            }
+            
+            currentPuzzle = response.puzzle;
+            currentPuzzle.puzzleType = puzzleType;
+            
+            // Clear previous content
+            textOutput.innerHTML = '';
+            explanationOutput.innerHTML = '';
+            optionsContainer.innerHTML = '';
+            textInput.style.display = 'none';
+            submitBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            textInput.value = '';
+            
+            await displayMessages([response.status.room_description, currentPuzzle.question]);
+            
+            if (currentPuzzle.current_q) {
+                await displayMessages([currentPuzzle.current_q]);
+            }
+            
+            if (currentPuzzle.type === 'text') {
+                showTextInput();
+            } else if (currentPuzzle.type === 'multi') {
+                showOptions(currentPuzzle.options);
+            }
+        }
+
+        // Show text input for answers
+        function showTextInput() {
+            optionsContainer.innerHTML = '';
+            textInput.style.display = 'inline-block';
+            submitBtn.style.display = 'inline-block';
+            nextBtn.style.display = 'none';
+            textInput.focus();
+        }
+
+        // Show multiple choice options
+        function showOptions(options) {
+            textInput.style.display = 'none';
+            submitBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            optionsContainer.innerHTML = '';
+            
+            options.forEach((option) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.textContent = option;
+                btn.onclick = () => handleOptionSelect(option);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        // Handle option selection for multiple choice
+        async function handleOptionSelect(option) {
+            const response = await apiCall('puzzle/check', {
+                puzzle_type: currentPuzzle.puzzleType,
+                answer: option
+            });
+            
+            handlePuzzleResponse(response);
+        }
+
+        // Handle puzzle response
+        async function handlePuzzleResponse(response) {
+            if (response.error) {
+                await displayMessages([response.error]);
+                return;
+            }
+            
+            explanationOutput.innerHTML = '';
+            optionsContainer.innerHTML = '';
+            textInput.style.display = 'none';
+            submitBtn.style.display = 'none';
+            
+            await displayMessages([response.message]);
+            
+            if (response.feedback) {
+                await displayMessages(response.feedback, explanationOutput);
+            }
+            
+            if (response.explanation) {
+                await displayMessages(response.explanation, explanationOutput);
+            }
+            
+            // Handle multi-part questions
+            if (response.next_question) {
+                if (typeof response.next_question === 'string') {
+                    await displayMessages([response.next_question]);
+                    showTextInput();
+                    return;
+                } else {
+                    currentPuzzle.question = response.next_question.question;
+                    currentPuzzle.options = response.next_question.options;
+                    await displayMessages([response.next_question.question]);
+                    showOptions(response.next_question.options);
+                    return;
+                }
+            }
+            
+            updateStatus(response.status);
+            
+            // Only show next button if we're actually moving to a new room
+            if (response.next_room) {
+                nextBtn.style.display = 'inline-block';
+                nextBtn.dataset.nextRoom = response.next_room;
+            } else {
+                // If we're not moving rooms, re-show the input options
+                if (currentPuzzle.type === 'text') {
+                    showTextInput();
+                } else if (currentPuzzle.type === 'multi') {
+                    showOptions(currentPuzzle.options);
+                }
+            }
+        }
+
+        // Start the game
+        startBtn.addEventListener('click', async () => {
+            const name = prompt("What is your name, young scientist?", "Scientist");
+            if (name) {
+                const response = await apiCall('start', { name });
+                if (response.error) {
+                    alert(response.error);
+                    return;
+                }
+                
+                welcomeScreen.style.display = 'none';
+                gameScreen.style.display = 'block';
+                
+                await displayMessages(response.messages);
+                updateStatus(response.status);
+                
+                // Start first puzzle
+                await startPuzzle('math');
+            }
+        });
+
+        // Submit button handler
+        submitBtn.addEventListener('click', async () => {
+            const answer = textInput.value.trim();
+            if (answer) {
+                const response = await apiCall('puzzle/check', {
+                    puzzle_type: currentPuzzle.puzzleType,
+                    answer: answer
+                });
+                
+                handlePuzzleResponse(response);
+                textInput.value = '';
+            }
+        });
+
+        // Next button handler
+        nextBtn.addEventListener('click', async () => {
+            const nextRoom = nextBtn.dataset.nextRoom;
+            if (!nextRoom) return;
+            
+            nextBtn.style.display = 'none';
+            explanationOutput.innerHTML = '';
+            
+            if (nextRoom === 'end') {
+                await displayMessages([
+                    "Congratulations! You've escaped the facility!",
+                    Final Score: ${scoreEl.textContent},
+                    "Thanks for playing STEM Puzzle Adventure!"
+                ]);
+                return;
+            }
+            
+            await startPuzzle(nextRoom);
+        });
+
+        // Handle Enter key in text input
+        textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>
