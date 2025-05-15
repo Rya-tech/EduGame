@@ -1,0 +1,508 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import random
+import sys
+
+app = Flask(_name_)
+CORS(app, resources={r"/api/": {"origins": ""}})
+
+class STEMPuzzleAdventure:
+    def _init_(self):
+        self.player_name = ""
+        self.score = 0
+        self.completed_puzzles = []
+        self.current_room = "entrance"
+        self.current_puzzle = None
+        self.puzzle_state = {}
+    
+    def welcome(self, name):
+        self.player_name = name
+        return [
+            f"Welcome to STEM Puzzle Adventure: The Lost Scientist!",
+            f"You are a young scientist trapped in a mysterious research facility.",
+            f"To escape, you must solve STEM puzzles in each room.",
+            f"\nGood luck, {self.player_name}! Let's begin..."
+        ]
+    
+    def get_status(self):
+        return {
+            "player_name": self.player_name,
+            "score": self.score,
+            "current_room": self.current_room,
+            "completed_puzzles": len(self.completed_puzzles),
+            "room_description": self.get_room_description()
+        }
+    
+    def get_room_description(self):
+        descriptions = {
+            "entrance": "You stand in the entrance hall. The door locks behind you.",
+            "math lab": "You enter the Math Lab. Equations cover the walls.",
+            "chemistry lab": "The Chemistry Lab smells of chemicals. A periodic table glows.",
+            "physics lab": "The Physics Lab hums with energy. Strange machines line the walls.",
+            "biology lab": "The Biology Lab has cell diagrams and DNA models.",
+            "control room": "You reach the Control Room! One final challenge remains."
+        }
+        return descriptions.get(self.current_room, "An unknown room.")
+    
+    def start_puzzle(self, puzzle_type):
+        self.current_puzzle = puzzle_type
+        self.puzzle_state = {}
+        
+        if puzzle_type == "math":
+            return self.setup_math_puzzle()
+        elif puzzle_type == "chemistry":
+            return self.setup_chemistry_puzzle()
+        elif puzzle_type == "physics":
+            return self.setup_physics_puzzle()
+        elif puzzle_type == "biology":
+            return self.setup_biology_puzzle()
+        elif puzzle_type == "final":
+            return self.setup_final_challenge()
+        else:
+            return {"error": "Unknown puzzle type"}
+    
+    def setup_math_puzzle(self):
+        operations = [
+            {'symbol': '+', 'name': 'addition', 'example': '3 + 4 = 7'},
+            {'symbol': '-', 'name': 'subtraction', 'example': '8 - 3 = 5'},
+            {'symbol': '*', 'name': 'multiplication', 'example': '5 * 6 = 30'}
+        ]
+        op = random.choice(operations)
+        a = random.randint(1, 20)
+        b = random.randint(1, 20)
+        
+        if op['symbol'] == '+':
+            answer = a + b
+        elif op['symbol'] == '-':
+            a, b = max(a, b), min(a, b)
+            answer = a - b
+        else:
+            answer = a * b
+            
+        self.puzzle_state = {
+            "a": a, "b": b, "operation": op['symbol'],
+            "answer": answer, "type": op['name'],
+            "example": op['example'], "attempts": 3
+        }
+        
+        return {
+            "question": f"What is {a} {op['symbol']} {b}?",
+            "type": "text",
+            "hint": f"This is a {op['name']} problem. Example: {op['example']}"
+        }
+    
+    def check_math_answer(self, user_answer):
+        try:
+            user_answer = int(user_answer)
+            correct = user_answer == self.puzzle_state["answer"]
+            
+            if correct:
+                self.score += 10
+                self.completed_puzzles.append("Math Puzzle")
+                self.current_room = "chemistry lab"
+                return {
+                    "correct": True,
+                    "message": "Correct! The door unlocks.",
+                    "status": self.get_status(),
+                    "next_room": "chemistry"
+                }
+            else:
+                self.puzzle_state["attempts"] -= 1
+                if self.puzzle_state["attempts"] > 0:
+                    return {
+                        "correct": False,
+                        "message": f"Try again! {self.puzzle_state['attempts']} attempt(s) left.",
+                        "status": self.get_status(),
+                        "next_room": None
+                    }
+                else:
+                    explanation = self.generate_math_explanation()
+                    self.current_room = "chemistry lab"
+                    return {
+                        "correct": False,
+                        "message": "Here's the solution:",
+                        "explanation": explanation,
+                        "status": self.get_status(),
+                        "next_room": "chemistry"
+                    }
+        except ValueError:
+            return {
+                "correct": False,
+                "message": "Please enter a valid number!",
+                "status": self.get_status(),
+                "next_room": None
+            }
+    
+    def generate_math_explanation(self):
+        a = self.puzzle_state["a"]
+        b = self.puzzle_state["b"]
+        op = self.puzzle_state["operation"]
+        answer = self.puzzle_state["answer"]
+        
+        explanation = [
+            f"This is a {self.puzzle_state['type']} problem. Example: {self.puzzle_state['example']}",
+            f"For {a} {op} {b}:"
+        ]
+        
+        if op == '+':
+            explanation.append(f"- Start at {a}, count up {b} numbers: {a} → {a+1} → ... → {answer}")
+        elif op == '-':
+            explanation.append(f"- Start at {a}, count back {b} numbers: {a} → {a-1} → ... → {answer}")
+        else:
+            explanation.append(f"- Think of {a} groups of {b} items each")
+            explanation.append(f"- {a} × {b} = {' + '.join([str(b) for _ in range(a)])} = {answer}")
+        
+        explanation.append(f"The correct answer is {answer}.")
+        return explanation
+    
+    def setup_chemistry_puzzle(self):
+        elements = {
+            "H": {"name": "Hydrogen", "facts": ["Lightest element", "Most abundant in universe"]},
+            "He": {"name": "Helium", "facts": ["Noble gas", "Used in balloons"]},
+            "Li": {"name": "Lithium", "facts": ["Alkali metal", "Used in batteries"]},
+            "O": {"name": "Oxygen", "facts": ["Essential for life", "Makes up 21% of air"]},
+            "C": {"name": "Carbon", "facts": ["Basis of organic chemistry", "Forms diamonds"]}
+        }
+        
+        selected = random.sample(list(elements.items()), 3)
+        self.puzzle_state = {
+            "elements": {sym: info for sym, info in selected},
+            "attempts": {},
+            "total_attempts": 0
+        }
+        
+        symbols = list(self.puzzle_state["elements"].keys())
+        return {
+            "question": f"Match these chemical symbols to their names: {', '.join(symbols)}",
+            "type": "multi",
+            "options": [info["name"] for sym, info in selected],
+            "correct_answers": {sym: info["name"] for sym, info in selected}
+        }
+    
+    def check_chemistry_answer(self, answers):
+        correct = 0
+        feedback = []
+        elements = self.puzzle_state["elements"]
+        
+        for symbol, user_answer in answers.items():
+            correct_answer = elements[symbol]["name"]
+            if user_answer.strip().lower() == correct_answer.lower():
+                correct += 1
+                feedback.append(f"{symbol}: Correct! {correct_answer}")
+            else:
+                feedback.append(f"{symbol}: Incorrect. The correct answer is {correct_answer}")
+                fact = random.choice(elements[symbol]["facts"])
+                feedback.append(f"Did you know? {fact}")
+        
+        if correct >= len(elements) * 0.7:
+            self.score += 15
+            self.completed_puzzles.append("Chemistry Puzzle")
+            self.current_room = "physics lab"
+            return {
+                "correct": True,
+                "message": "Well done! Most answers were correct.",
+                "feedback": feedback,
+                "status": self.get_status(),
+                "next_room": "physics"
+            }
+        else:
+            self.current_room = "physics lab"
+            detailed_explanation = ["Let's review these elements:"]
+            for sym, info in elements.items():
+                detailed_explanation.append(f"\n{sym}: {info['name']}")
+                detailed_explanation.append("Facts:")
+                for fact in info["facts"]:
+                    detailed_explanation.append(f"- {fact}")
+            
+            return {
+                "correct": False,
+                "message": "Here's more information:",
+                "feedback": feedback,
+                "explanation": detailed_explanation,
+                "status": self.get_status(),
+                "next_room": "physics"
+            }
+
+    def setup_physics_puzzle(self):
+        questions = [
+            {
+                "question": "What is the SI unit of force?",
+                "options": ["Joule", "Newton", "Watt", "Pascal"],
+                "answer": "Newton",
+                "explanation": "Force is measured in Newtons (N). F=ma (force = mass × acceleration)."
+            },
+            {
+                "question": "What force keeps planets in orbit?",
+                "options": ["Electromagnetism", "Gravity", "Strong Nuclear", "Weak Nuclear"],
+                "answer": "Gravity",
+                "explanation": "Gravity is the attractive force between masses that keeps planets in orbit."
+            }
+        ]
+        
+        self.puzzle_state = {
+            "questions": questions,
+            "current_question": 0,
+            "correct_answers": 0
+        }
+        
+        return {
+            "question": questions[0]["question"],
+            "type": "multi",
+            "options": questions[0]["options"],
+            "total_questions": len(questions)
+        }
+    
+    def check_physics_answer(self, answer):
+        current_q = self.puzzle_state["current_question"]
+        question = self.puzzle_state["questions"][current_q]
+        
+        correct = answer.strip().lower() == question["answer"].lower()
+        
+        if correct:
+            self.puzzle_state["correct_answers"] += 1
+        
+        self.puzzle_state["current_question"] += 1
+        
+        if self.puzzle_state["current_question"] < len(self.puzzle_state["questions"]):
+            next_q = self.puzzle_state["questions"][self.puzzle_state["current_question"]]
+            return {
+                "correct": correct,
+                "message": "Correct!" if correct else f"Incorrect. The answer was {question['answer']}",
+                "next_question": {
+                    "question": next_q["question"],
+                    "options": next_q["options"]
+                },
+                "completed": False,
+                "next_room": None
+            }
+        else:
+            if self.puzzle_state["correct_answers"] >= len(self.puzzle_state["questions"]) * 0.7:
+                self.score += 20
+                self.completed_puzzles.append("Physics Puzzle")
+                self.current_room = "biology lab"
+                return {
+                    "correct": True,
+                    "message": "Physics challenge passed!",
+                    "status": self.get_status(),
+                    "completed": True,
+                    "next_room": "biology"
+                }
+            else:
+                self.current_room = "biology lab"
+                explanations = ["Physics concepts to review:"]
+                for q in self.puzzle_state["questions"]:
+                    explanations.append(f"\nQ: {q['question']}")
+                    explanations.append(f"A: {q['answer']}")
+                    explanations.append(f"Explanation: {q['explanation']}")
+                
+                return {
+                    "correct": False,
+                    "message": "Here's what you need to know:",
+                    "explanation": explanations,
+                    "status": self.get_status(),
+                    "completed": True,
+                    "next_room": "biology"
+                }
+
+    def setup_biology_puzzle(self):
+        dna_bases = ["A", "T", "C", "G"]
+        dna_sequence = "".join(random.choices(dna_bases, k=8))
+        rna_sequence = dna_sequence.replace("T", "U")
+        
+        self.puzzle_state = {
+            "dna_sequence": dna_sequence,
+            "rna_sequence": rna_sequence,
+            "attempts": 2
+        }
+        
+        return {
+            "question": f"Transcribe this DNA sequence to RNA: {dna_sequence}\nRemember: In RNA, T is replaced by U",
+            "type": "text",
+            "hint": "DNA → RNA: A → U, T → A, C → G, G → C"
+        }
+    
+    def check_biology_answer(self, answer):
+        answer = answer.strip().upper()
+        correct = answer == self.puzzle_state["rna_sequence"]
+        
+        if correct:
+            self.score += 25
+            self.completed_puzzles.append("Biology Puzzle")
+            self.current_room = "control room"
+            return {
+                "correct": True,
+                "message": "Perfect! The DNA analyzer beeps.",
+                "status": self.get_status(),
+                "next_room": "final"
+            }
+        else:
+            self.puzzle_state["attempts"] -= 1
+            if self.puzzle_state["attempts"] > 0:
+                return {
+                    "correct": False,
+                    "message": f"Try again! {self.puzzle_state['attempts']} attempt(s) left.",
+                    "status": self.get_status(),
+                    "next_room": None
+                }
+            else:
+                explanation = [
+                    "DNA to RNA transcription:",
+                    "DNA bases: A (Adenine), T (Thymine), C (Cytosine), G (Guanine)",
+                    "RNA replaces T with U (Uracil):",
+                    "DNA → RNA: A → U, T → A, C → G, G → C",
+                    "\nFor your sequence:"
+                ]
+                
+                for base in self.puzzle_state["dna_sequence"]:
+                    if base == "A":
+                        rna = "U"
+                    elif base == "T":
+                        rna = "A"
+                    elif base == "C":
+                        rna = "G"
+                    else:
+                        rna = "C"
+                    explanation.append(f"DNA {base} → RNA {rna}")
+                
+                explanation.append(f"\nComplete RNA sequence: {self.puzzle_state['rna_sequence']}")
+                
+                self.current_room = "control room"
+                return {
+                    "correct": False,
+                    "message": "Here's how it works:",
+                    "explanation": explanation,
+                    "status": self.get_status(),
+                    "next_room": "final"
+                }
+
+    def setup_final_challenge(self):
+        self.puzzle_state = {
+            "questions": [
+                {
+                    "question": "What is π (pi) to 5 decimal places?",
+                    "answer": "3.14159",
+                    "explanation": "π is the ratio of a circle's circumference to its diameter."
+                },
+                {
+                    "question": "Which planet is known as the Red Planet?",
+                    "answer": "Mars",
+                    "explanation": "Mars appears red due to iron oxide (rust) on its surface."
+                },
+                {
+                    "question": "What simple machine is a ramp?",
+                    "answer": "Inclined plane",
+                    "explanation": "Inclined planes make it easier to move objects vertically."
+                }
+            ],
+            "current_question": 0,
+            "correct_answers": 0
+        }
+        
+        return {
+            "question": "Final Challenge: Answer these STEM questions",
+            "type": "text",
+            "current_q": self.puzzle_state["questions"][0]["question"]
+        }
+    
+    def check_final_answer(self, answer):
+        current_q = self.puzzle_state["current_question"]
+        question = self.puzzle_state["questions"][current_q]
+        
+        correct = answer.strip().lower() == question["answer"].lower()
+        
+        if correct:
+            self.puzzle_state["correct_answers"] += 1
+        
+        self.puzzle_state["current_question"] += 1
+        
+        if self.puzzle_state["current_question"] < len(self.puzzle_state["questions"]):
+            next_q = self.puzzle_state["questions"][self.puzzle_state["current_question"]]
+            return {
+                "correct": correct,
+                "message": "Correct!" if correct else f"Incorrect. The answer was {question['answer']}",
+                "next_question": next_q["question"],
+                "completed": False,
+                "next_room": None
+            }
+        else:
+            if self.puzzle_state["correct_answers"] >= len(self.puzzle_state["questions"]) * 0.7:
+                self.score += 50
+                self.completed_puzzles.append("Final Challenge")
+                return {
+                    "correct": True,
+                    "message": "CONGRATULATIONS! You've escaped!",
+                    "status": self.get_status(),
+                    "completed": True,
+                    "next_room": "end"
+                }
+            else:
+                explanations = ["Key concepts to review:"]
+                for q in self.puzzle_state["questions"]:
+                    explanations.append(f"\nQ: {q['question']}")
+                    explanations.append(f"A: {q['answer']}")
+                    explanations.append(f"Explanation: {q['explanation']}")
+                
+                return {
+                    "correct": False,
+                    "message": "Here's what you need to know:",
+                    "explanation": explanations,
+                    "status": self.get_status(),
+                    "completed": True,
+                    "next_room": "end"
+                }
+
+game = STEMPuzzleAdventure()
+
+@app.route('/api/start', methods=['POST'])
+def start_game():
+    data = request.get_json()
+    name = data.get('name', 'Scientist')
+    messages = game.welcome(name)
+    return jsonify({
+        "messages": messages,
+        "status": game.get_status()
+    })
+
+@app.route('/api/status', methods=['GET'])
+def get_game_status():
+    return jsonify(game.get_status())
+
+@app.route('/api/puzzle/start', methods=['POST'])
+def start_puzzle():
+    data = request.get_json()
+    puzzle_type = data.get('type')
+    if not puzzle_type:
+        return jsonify({"error": "Puzzle type required"}), 400
+    
+    puzzle_data = game.start_puzzle(puzzle_type)
+    return jsonify({
+        "puzzle": puzzle_data,
+        "status": game.get_status()
+    })
+
+@app.route('/api/puzzle/check', methods=['POST'])
+def check_answer():
+    data = request.get_json()
+    puzzle_type = data.get('puzzle_type')
+    answer = data.get('answer')
+    
+    if not puzzle_type or not answer:
+        return jsonify({"error": "Puzzle type and answer required"}), 400
+    
+    if puzzle_type == "math":
+        result = game.check_math_answer(answer)
+    elif puzzle_type == "chemistry":
+        result = game.check_chemistry_answer(answer)
+    elif puzzle_type == "physics":
+        result = game.check_physics_answer(answer)
+    elif puzzle_type == "biology":
+        result = game.check_biology_answer(answer)
+    elif puzzle_type == "final":
+        result = game.check_final_answer(answer)
+    else:
+        return jsonify({"error": "Unknown puzzle type"}), 400
+    
+    return jsonify(result)
+
+if _name_ == '_main_':
+    app.run(debug=True, port=5000)
